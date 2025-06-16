@@ -2,28 +2,15 @@ package org.exthm.featuresettings.ui.settings
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -45,6 +32,20 @@ fun FeatureSettingsScreen(viewModel: SettingsViewModel) {
     val launcherBlurEnabled by viewModel.launcherBlurEnabled.collectAsStateWithLifecycle()
     val screenOcrEnabled by viewModel.screenOcrEnabled.collectAsStateWithLifecycle()
     val screenOcrHighValue by viewModel.screenOcrHighValue.collectAsStateWithLifecycle()
+    val disableSensorEnabled by viewModel.disableSensorEnabled.collectAsStateWithLifecycle()
+    val disableSensorApps by viewModel.disableSensorApps.collectAsStateWithLifecycle()
+    val showAppSelectionDialog by viewModel.showAppSelectionDialog.collectAsStateWithLifecycle()
+    val installedApps by viewModel.installedApps.collectAsStateWithLifecycle()
+
+    if (showAppSelectionDialog) {
+        AppSelectionDialog(
+            allApps = installedApps,
+            initiallySelectedApps = disableSensorApps,
+            onDismiss = { viewModel.onDismissAppSelectionDialog() },
+            onConfirm = { selectedApps -> viewModel.onAppSelectionConfirmed(selectedApps) }
+        )
+    }
+
 
     Scaffold(
         topBar = {
@@ -104,6 +105,20 @@ fun FeatureSettingsScreen(viewModel: SettingsViewModel) {
                 onCheckedChange = { viewModel.onLauncherBlurChanged(it) }
             )
 
+            val descriptionText = if (disableSensorApps.isEmpty()) {
+                stringResource(R.string.disable_sensor_summary_none)
+            } else {
+                stringResource(R.string.disable_sensor_summary_selected, disableSensorApps.size)
+            }
+            SettingItemWithClickableDescription(
+                title = stringResource(R.string.disable_sensor_title),
+                description = descriptionText,
+                isChecked = disableSensorEnabled,
+                onCheckedChange = { viewModel.onDisableSensorChanged(it) },
+                onDescriptionClick = { viewModel.onShowAppSelectionDialog() },
+                enabled = true
+            )
+
             SettingItem(
                 title = stringResource(R.string.screen_ocr_title),
                 description = stringResource(R.string.screen_ocr_summary),
@@ -124,6 +139,108 @@ fun FeatureSettingsScreen(viewModel: SettingsViewModel) {
             )
         }
     }
+}
+
+@Composable
+fun SettingItemWithClickableDescription(
+    title: String,
+    description: String,
+    isChecked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    onDescriptionClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 16.dp)
+            .alpha(if (enabled) 1f else 0.5f),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f).padding(end = 16.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = description,
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .clickable(enabled = enabled) { onDescriptionClick() }
+            )
+        }
+        Switch(
+            checked = isChecked,
+            onCheckedChange = onCheckedChange,
+            enabled = enabled
+        )
+    }
+}
+
+@Composable
+fun AppSelectionDialog(
+    allApps: List<SettingsViewModel.AppInfo>,
+    initiallySelectedApps: Set<String>,
+    onDismiss: () -> Unit,
+    onConfirm: (Set<String>) -> Unit
+) {
+    val selectedApps = rememberSaveable { mutableStateOf(initiallySelectedApps) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.app_selection_dialog_title)) },
+        text = {
+            LazyColumn(modifier = Modifier.fillMaxHeight(0.7f)) {
+                items(allApps, key = { it.packageName }) { appInfo ->
+                    val isSelected = selectedApps.value.contains(appInfo.packageName)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val currentSelection = selectedApps.value.toMutableSet()
+                                if (isSelected) {
+                                    currentSelection.remove(appInfo.packageName)
+                                } else {
+                                    currentSelection.add(appInfo.packageName)
+                                }
+                                selectedApps.value = currentSelection
+                            }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = null
+                        )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(text = appInfo.appName, fontSize = 16.sp)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selectedApps.value) }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        }
+    )
 }
 
 @Composable

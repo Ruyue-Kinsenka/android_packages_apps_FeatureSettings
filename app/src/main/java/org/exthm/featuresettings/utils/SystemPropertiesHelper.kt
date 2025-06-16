@@ -19,4 +19,9 @@ object SystemPropertiesHelper {
             e.printStackTrace()
         }
     }
+
+    fun get(key: String, def: String): String {
+        return SystemProperties.get(key, def)
+    }
+
 }
