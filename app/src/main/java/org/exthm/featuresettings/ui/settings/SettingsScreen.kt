@@ -118,8 +118,8 @@ fun FeatureSettingsScreen(viewModel: SettingsViewModel) {
                 value = screenOcrHighValue,
                 onValueChange = { viewModel.onScreenOcrHighChanged(it) },
                 onValueChangeFinished = { viewModel.onScreenOcrHighChangeFinished(screenOcrHighValue) },
-                valueRange = 4f..10f,
-                steps = 5,
+                valueRange = 7f..20f,
+                steps = 12,
                 enabled = screenOcrEnabled
             )
         }
